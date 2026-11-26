@@ -286,12 +286,13 @@ function populateQueryUI() {
     renderGradeSelects();
 
     const subjectSel = document.getElementById('subjectSelect');
-    subjectSel.innerHTML = '<option value="">— 選擇科目 —</option>';
+    subjectSel.innerHTML = '<option value="">— 不限科目 —</option>';
     Object.keys(subjectTeachers).sort().forEach(s => {
         const opt = document.createElement('option');
         opt.value = s; opt.textContent = s;
         subjectSel.appendChild(opt);
     });
+    fillTeacherOptions();
 }
 
 function renderGradeSelects() {
@@ -372,25 +373,45 @@ function submitClassQuery() {
 /* ═══════════════════════════════════════════════════════════
    教師查詢
 ═══════════════════════════════════════════════════════════ */
-function onSubjectChange() {
+/* 教師名單：預設列出全部老師，可直接選；科目為選填，選了只是縮小名單 */
+function allTeachers() {
+    return [...new Set(scheduleData.map(r => r.teachername))]
+        .sort((x, y) => x.localeCompare(y, 'zh-Hant-TW'));
+}
+
+function fillTeacherOptions() {
     const subj = document.getElementById('subjectSelect').value;
-    const teacherSel = document.getElementById('teacherSelect');
-    teacherSel.innerHTML = '<option value="">— 選擇教師 —</option>';
-    if (!subj) return;
-    (subjectTeachers[subj] || []).forEach(t => {
+    const sel  = document.getElementById('teacherSelect');
+    const keep = sel.value;                                   // 已選的老師若還在名單內就保留
+    const list = subj ? (subjectTeachers[subj] || []) : allTeachers();
+    sel.innerHTML = `<option value="">— ${subj ? '該科目的老師' : '選擇教師（全部）'} —</option>`;
+    list.forEach(t => {
         const opt = document.createElement('option');
         opt.value = t; opt.textContent = t;
-        teacherSel.appendChild(opt);
+        sel.appendChild(opt);
     });
+    if (list.includes(keep)) sel.value = keep;
+}
+
+function onSubjectChange() {
+    fillTeacherOptions();
     document.getElementById('teacherError').textContent = '';
 }
 
 function submitTeacherQuery() {
-    const teacher = document.getElementById('teacherSelect').value;
+    const subj = document.getElementById('subjectSelect').value;
+    let teacher = document.getElementById('teacherSelect').value;
+    const err = document.getElementById('teacherError');
+    if (!teacher && subj) {                                   // 只選科目：該科目只有一位老師就直接顯示
+        const list = subjectTeachers[subj] || [];
+        if (list.length === 1) teacher = list[0];
+        else { err.textContent = `「${subj}」有 ${list.length} 位老師，請從教師選單選一位`; return; }
+    }
     if (!teacher) {
-        document.getElementById('teacherError').textContent = '請先選擇科目與教師';
+        err.textContent = '請選擇老師（也可以先選科目縮小名單）';
         return;
     }
+    err.textContent = '';
     navHistory = [];
     displayTeacherSchedule(teacher);
 }
